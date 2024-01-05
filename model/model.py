@@ -7,25 +7,31 @@ import pytorch_lightning as pl
 from PIL import Image
 import os
 from dataset import *
+import torch.nn.functional as F
 
 # Define tu modelo
-class MalariaModel(pl.LightningModule):
+class MalariaModel(nn.Module):
     def __init__(self, num_classes=3):
         super(MalariaModel, self).__init__()
-        # Define la arquitectura de tu red neuronal aquí
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(64 * 50 * 50, 128)
-        self.fc2 = nn.Linear(128, num_classes)  # Número de clases
+        # Ajustamos las capas según la arquitectura de la imagen
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        
+        self.pool = nn.MaxPool2d(2, 2)
+        self.fc1 = nn.Linear(10*10*64, 64)
+        self.fc2 = nn.Linear(64, num_classes)
 
     def forward(self, x):
-        # Propagación hacia adelante
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        # Siguiendo la arquitectura de la imagen
+        x = self.pool(F.relu(self.conv1(x)))  # Convolution 1 -> ReLU -> Max pooling
+        x = F.relu(self.conv2(x))             # Convolution 2 -> ReLU
+        x = self.pool(F.relu(self.conv3(x)))  # Convolution 3 -> ReLU -> Max pooling
+        x = x.view(-1, 10*10*64)              # Aplanar el tensor para la entrada completamente conectada
+        x = F.relu(self.fc1(x))               # Fully connected 1 -> ReLU
+        x = self.fc2(x)                       # Fully connected 2
         return x
+
 
     def training_step(self, batch, batch_idx):
         # Lógica para un paso de entrenamiento
